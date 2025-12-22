@@ -1,73 +1,103 @@
-# React + TypeScript + Vite
+# CAPEX Sync Pro
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicación ejecutiva para control de CAPEX con Supabase, Vite + React + TypeScript, Tailwind y shadcn-style components.
 
-Currently, two official plugins are available:
+## Configuración rápida
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+1. Copia `.env.example` en `.env` y completa credenciales de Supabase:
 
-## React Compiler
+   ```bash
+   VITE_SUPABASE_URL=https://<project>.supabase.co
+   VITE_SUPABASE_ANON_KEY=<anon-key>
+   ```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+2. Instala dependencias y levanta el entorno local:
 
-## Expanding the ESLint configuration
+   ```bash
+   npm install
+   npm run dev
+   ```
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Supabase: migraciones y seed
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+1. Exporta las variables de entorno de Supabase CLI o configura la URL y el anon/service key.
+2. Aplica la migración inicial (tablas, RLS, view `project_forecast_status`):
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+   ```bash
+   supabase migration up --db-url $SUPABASE_DB_URL
+   ```
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+3. Carga el seed 2025 (30 proyectos con real vs forecast):
+
+   ```bash
+   supabase db execute --file supabase/seed/2025_seed.sql --db-url $SUPABASE_DB_URL
+   ```
+
+## Rutas principales
+
+- `/dashboard`: KPIs ejecutivos, gráficos YTD/BDGT, filtros por área y categoría, top desembolsos.
+- `/projects`: lista filtrable y edición de forecast Sep–Dic (solo filas permitidas por RLS).
+- `/users`: vista jerárquica segmentos → responsables → proyectos, solo admin.
+- `/upload`: carga CSV para insertar/actualizar `capex_data`, solo admin.
+
+## Autenticación y roles
+
+- Supabase Auth email/password.
+- Tabla `user_roles` define `admin` o `user`. El trigger `handle_new_user` asigna rol `user` y crea perfil.
+- RLS:
+  - Admin ve todo y puede insertar/actualizar.
+  - Usuario solo ve proyectos donde `responsable_3` coincide con su `profiles.full_name` y solo actualiza forecast de meses futuros.
+
+## SQL de la view `project_forecast_status`
+
+```sql
+create or replace view public.project_forecast_status as
+with base as (
+  select
+    coalesce(numero_oi, nombre_proyecto) as project_key,
+    nombre_proyecto,
+    segmento,
+    categoria,
+    responsable_3 as responsable,
+    mes,
+    is_forecast,
+    monto_usd,
+    bdgt_mes_usd,
+    updated_at
+  from public.capex_data
+  where ano = extract(year from now())
+)
+select
+  project_key,
+  nombre_proyecto,
+  segmento,
+  categoria,
+  responsable,
+  sum(case when mes <= 8 and is_forecast = false then monto_usd else 0 end) as real_ytd,
+  sum(case when mes <= 8 then bdgt_mes_usd else 0 end) as bdgt_ytd,
+  coalesce(max(case when mes = 9 then monto_usd end), 0) as forecast_sep,
+  coalesce(max(case when mes = 10 then monto_usd end), 0) as forecast_oct,
+  coalesce(max(case when mes = 11 then monto_usd end), 0) as forecast_nov,
+  coalesce(max(case when mes = 12 then monto_usd end), 0) as forecast_dec,
+  max(updated_at) filter (where is_forecast and mes >= 9) as forecast_last_updated_at,
+  (
+    count(*) filter (where is_forecast and mes in (9,10,11,12)) = 4
+    and coalesce(max(updated_at) filter (where is_forecast and mes >= 9), now() - interval '8 days') >= now() - interval '7 days'
+  ) as forecast_ready
+from base
+group by project_key, nombre_proyecto, segmento, categoria, responsable;
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### ¿Cómo validarla?
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+1. Ejecuta un `select * from project_forecast_status limit 5;` para revisar agregados.
+2. Cambia un forecast de Sep–Dic y confirma que `forecast_last_updated_at` se actualiza.
+3. Verifica que `forecast_ready` solo sea verdadero cuando existen las cuatro filas de forecast y su `updated_at` está dentro de 7 días.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Notas de datos
+
+- Año 2025 con 30 proyectos.
+- Segmentos: Administración, Bodega Prillex, Confiabilidad, Mantenimiento, I+D, Logistica, HSEC Prillex, Nittra.
+- Categorías: Crecimiento/Rentabilidad, Mantenciones y OVH, Normativos/Seguridad, Nuevas Tecnologías, Otros.
+- Mantenimiento concentra mayor presupuesto y número de proyectos.
+- Real sólo enero-agosto (`is_forecast=false`), forecast sep-dic (`is_forecast=true`).
