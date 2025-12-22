@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Loader2, Save } from 'lucide-react'
+import { Loader2, Save } from 'lucide-react'
 import { fetchAggregatedStatus, fetchCapexRows, upsertForecastRows } from '../data/client'
 import { fallbackAggregates, fallbackRows } from '../data/fallback'
 import { Badge } from '../components/ui/badge'
@@ -25,8 +25,6 @@ export default function ProjectsPage() {
 
   const capexRows = capexQuery.data ?? fallbackRows
   const aggregates = aggregateQuery.data ?? fallbackAggregates
-  const isLoading = capexQuery.isLoading || aggregateQuery.isLoading
-  const hasError = capexQuery.error || aggregateQuery.error
 
   const [drafts, setDrafts] = useState<Record<string, number>>({})
 
@@ -112,15 +110,9 @@ export default function ProjectsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {capexQuery.isLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Cargando proyectos…
-            </div>
-          ) : null}
-          {hasError ? (
-            <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              <AlertTriangle className="h-4 w-4" />
-              <div>Error al leer Supabase. Mostrando datos locales.</div>
             </div>
           ) : null}
           <Table>
@@ -170,17 +162,6 @@ export default function ProjectsPage() {
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {isLoading ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Cargando datos…
-            </div>
-          ) : null}
-          {hasError ? (
-            <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              <AlertTriangle className="h-4 w-4" />
-              <div>Datos locales mientras se recupera la conexión.</div>
-            </div>
-          ) : null}
           <div className="overflow-auto">
             <Table>
               <TableHeader>
