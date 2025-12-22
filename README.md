@@ -101,3 +101,7 @@ group by project_key, nombre_proyecto, segmento, categoria, responsable;
 - Categorías: Crecimiento/Rentabilidad, Mantenciones y OVH, Normativos/Seguridad, Nuevas Tecnologías, Otros.
 - Mantenimiento concentra mayor presupuesto y número de proyectos.
 - Real sólo enero-agosto (`is_forecast=false`), forecast sep-dic (`is_forecast=true`).
+
+## Runbook
+
+Consulta [RUNBOOK.md](./RUNBOOK.md) para pasos detallados de Supabase (migraciones, seed, creación de usuarios/admin) y ejecución en Codespaces.
