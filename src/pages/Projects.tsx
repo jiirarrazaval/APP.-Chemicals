@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { AlertTriangle, Loader2, Save } from 'lucide-react'
+import { Loader2, Save } from 'lucide-react'
 import { fetchAggregatedStatus, fetchCapexRows, upsertForecastRows } from '../data/client'
 import { fallbackAggregates, fallbackRows } from '../data/fallback'
 import { Badge } from '../components/ui/badge'
@@ -113,6 +114,7 @@ export default function ProjectsPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
+          {capexQuery.isLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Cargando proyectos…
             </div>

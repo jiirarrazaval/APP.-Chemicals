@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Select } from '../components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table'
 import { formatMUSD } from '../lib/utils'
+import type { ProjectAggregate } from '../types'
 
 const CURRENT_MONTH = 8
 
