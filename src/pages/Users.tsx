@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { AlertTriangle, Loader2 } from 'lucide-react'
 import { fetchAggregatedStatus } from '../data/client'
 import { fallbackAggregates } from '../data/fallback'
 import { Badge } from '../components/ui/badge'
@@ -10,6 +11,8 @@ import { formatMUSD } from '../lib/utils'
 export default function UsersPage() {
   const aggregateQuery = useQuery({ queryKey: ['aggregates'], queryFn: fetchAggregatedStatus, retry: false })
   const aggregates = aggregateQuery.data ?? fallbackAggregates
+  const isLoading = aggregateQuery.isLoading
+  const hasError = Boolean(aggregateQuery.error)
 
   const grouped = useMemo(() => {
     const segments: Record<
@@ -38,6 +41,17 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-4">
+      {isLoading ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" /> Cargando jerarquía…
+        </div>
+      ) : null}
+      {hasError ? (
+        <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <AlertTriangle className="h-4 w-4" />
+          <div>Error al leer Supabase. Mostrando datos locales.</div>
+        </div>
+      ) : null}
       {Object.entries(grouped).map(([segment, data]) => (
         <Card key={segment}>
           <CardHeader>
